@@ -27,10 +27,11 @@ var (
 
 // Filter is an opaque Bloom filter type
 type Filter struct {
-	lock sync.RWMutex
-	bits []uint64
 	keys []uint64
 	m    uint64 // number of bits the "bits" field should recognize
+
+	lock sync.RWMutex // lock guards accesses to the fields below
+	bits []uint64
 	n    uint64 // number of inserted elements
 }
 
@@ -111,13 +112,16 @@ func (f *Filter) Copy() (*Filter, error) {
 
 // UnionInPlace merges Bloom filter f2 into f
 func (f *Filter) UnionInPlace(f2 *Filter) error {
+	if f == f2 {
+		return nil
+	}
 	if !f.IsCompatible(f2) {
 		return errors.New("incompatible bloom filters")
 	}
-
 	f.lock.Lock()
 	defer f.lock.Unlock()
-
+	f2.lock.RLock()
+	defer f2.lock.RUnlock()
 	for i, bitword := range f2.bits {
 		f.bits[i] |= bitword
 	}
@@ -128,10 +132,12 @@ func (f *Filter) UnionInPlace(f2 *Filter) error {
 
 // Union merges f2 and f2 into a new Filter out
 func (f *Filter) Union(f2 *Filter) (out *Filter, err error) {
+	if f == f2 {
+		return f.Copy()
+	}
 	if !f.IsCompatible(f2) {
 		return nil, errors.New("incompatible bloom filters")
 	}
-
 	f.lock.RLock()
 	defer f.lock.RUnlock()
 
@@ -139,10 +145,24 @@ func (f *Filter) Union(f2 *Filter) (out *Filter, err error) {
 	if err != nil {
 		return nil, err
 	}
+	f2.lock.RLock()
+	defer f2.lock.RUnlock()
+
 	for i, bitword := range f2.bits {
 		out.bits[i] = f.bits[i] | bitword
 	}
 	// Also update the counters
 	out.n = f.n + f2.n
 	return out, nil
+}
+
+// Clear clears the bloom filter.
+func (f *Filter) Clear() {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+
+	for i := range f.bits {
+		f.bits[i] = 0
+	}
+	f.n = 0 // Also update the counters
 }

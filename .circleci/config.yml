@@ -6,21 +6,19 @@ jobs:
   build:
     docker:
       # specify the version
-      - image: circleci/golang:1.14
+      - image: cimg/go:1.19
 
-    working_directory: /go/src/github.com/holiman/bloomfilter
     steps:
       - checkout
 
       # specify any bash command here prefixed with `run: `
-      - run: go get -v -t -d ./...
       - run: (cd v2 && go test -v ./... -coverprofile=coverage.txt -covermode=count )
       - run:
           name: "Codecov upload"
           command: bash <(curl -s https://codecov.io/bash)
       - run:
           name: "Install tools"
-          command: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.23.8
+          command: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.54.2
       - run:
           name: "Lint"
           command: (cd v2 && golangci-lint run)

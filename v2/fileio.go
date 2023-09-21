@@ -68,14 +68,10 @@ func ReadFile(filename string) (f *Filter, n int64, err error) {
 
 // WriteTo a Writer w from lossless-compressed Bloom Filter f
 func (f *Filter) WriteTo(w io.Writer) (n int64, err error) {
-	f.lock.RLock()
-	defer f.lock.RUnlock()
-
 	rawW := gzip.NewWriter(w)
 	defer rawW.Close()
 
 	intN, _, err := f.MarshallToWriter(rawW)
-	//intN, _, err := f.MarshallToWriter(w)
 	n = int64(intN)
 	return n, err
 }
